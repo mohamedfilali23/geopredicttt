@@ -1,0 +1,1066 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>GeoPredict v2 — Bearing Capacity EC7</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#060810;--bg2:#0c1120;--bg3:#101828;--bg4:#172135;
+  --blue:#3b82f6;--blue2:#2563eb;--blue3:#1d4ed8;
+  --sky:#38bdf8;--cyan:#22d3ee;--violet:#7c3aed;
+  --green:#10b981;--amber:#f59e0b;--red:#ef4444;--gold:#fbbf24;
+  --text:#f0f4ff;--text2:#94a3b8;--text3:#3d5070;
+  --border:#1a2640;--border2:#1e3050;
+  --sidebar:230px;
+  --syne:'Syne',sans-serif;--inter:'Inter',sans-serif;--mono:'DM Mono',monospace;
+  --ease:cubic-bezier(.4,0,.2,1);
+}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--inter);display:flex;min-height:100vh;overflow-x:hidden;font-size:14px;line-height:1.6}
+
+/* ═══ SCENE BACKGROUND ═══ */
+#scene{position:fixed;inset:0;z-index:0;pointer-events:none}
+#scene canvas{position:absolute;inset:0;width:100%;height:100%}
+.orb{position:absolute;border-radius:50%;filter:blur(80px);animation:orb-drift ease-in-out infinite;opacity:.18}
+.orb1{width:600px;height:600px;background:radial-gradient(circle,#3b82f6,transparent 70%);top:-15%;left:10%;animation-duration:18s;animation-delay:0s}
+.orb2{width:500px;height:500px;background:radial-gradient(circle,#7c3aed,transparent 70%);top:30%;right:-10%;animation-duration:22s;animation-delay:-6s}
+.orb3{width:400px;height:400px;background:radial-gradient(circle,#22d3ee,transparent 70%);bottom:-10%;left:30%;animation-duration:16s;animation-delay:-3s}
+@keyframes orb-drift{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(40px,-30px) scale(1.08)}66%{transform:translate(-25px,20px) scale(.95)}}
+
+/* ═══ GRID OVERLAY ═══ */
+.grid-overlay{position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:linear-gradient(rgba(59,130,246,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(59,130,246,.04) 1px,transparent 1px);
+  background-size:60px 60px;mask-image:radial-gradient(ellipse 80% 80% at 50% 50%,black 40%,transparent 100%)}
+
+/* ═══ SIDEBAR ═══ */
+aside{
+  width:var(--sidebar);min-height:100vh;
+  background:rgba(10,16,32,.85);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  border-right:1px solid rgba(59,130,246,.12);
+  display:flex;flex-direction:column;
+  position:fixed;left:0;top:0;bottom:0;z-index:300;
+}
+.logo-zone{padding:22px 18px 20px;border-bottom:1px solid rgba(59,130,246,.1)}
+.logo{display:flex;align-items:center;gap:11px;cursor:pointer;text-decoration:none}
+.logo-gem{
+  width:40px;height:40px;border-radius:11px;flex-shrink:0;
+  background:linear-gradient(135deg,var(--blue),var(--cyan));
+  display:flex;align-items:center;justify-content:center;font-size:20px;
+  position:relative;overflow:hidden;
+}
+.logo-gem::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.2),transparent);animation:gem-shine 3s ease infinite}
+@keyframes gem-shine{0%,100%{opacity:0}50%{opacity:1}}
+.logo-name{font-family:var(--syne);font-size:17px;font-weight:800;color:#fff;letter-spacing:-.3px}
+.logo-tag{font-size:9px;font-family:var(--mono);color:var(--text3);margin-top:1px;letter-spacing:.5px}
+
+nav{flex:1;padding:16px 10px;overflow-y:auto}
+.nav-sec{font-size:9px;font-weight:700;color:var(--text3);letter-spacing:2px;text-transform:uppercase;padding:12px 10px 5px}
+.nav-item{
+  display:flex;align-items:center;gap:9px;width:100%;padding:9px 11px;
+  border:none;background:transparent;color:var(--text2);
+  font-family:var(--inter);font-size:13px;font-weight:500;
+  border-radius:9px;cursor:pointer;text-align:left;
+  transition:all .2s var(--ease);margin-bottom:2px;position:relative;overflow:hidden;
+}
+.nav-item::before{content:'';position:absolute;inset:0;background:linear-gradient(90deg,rgba(59,130,246,.15),transparent);opacity:0;transition:opacity .2s}
+.nav-item:hover{color:var(--text)}
+.nav-item:hover::before{opacity:1}
+.nav-item.active{color:var(--blue);background:rgba(59,130,246,.1)}
+.nav-item.active::before{opacity:1}
+.nav-item.active::after{content:'';position:absolute;left:0;top:20%;bottom:20%;width:3px;background:linear-gradient(180deg,var(--blue),var(--sky));border-radius:0 3px 3px 0}
+.nav-ico{font-size:15px;width:19px;text-align:center}
+.nav-pip{width:6px;height:6px;border-radius:50%;background:var(--border2);margin-left:auto;flex-shrink:0;transition:all .2s}
+.nav-item.active .nav-pip{background:var(--blue);box-shadow:0 0 8px var(--blue)}
+
+.sidebar-prefs{padding:10px;border-top:1px solid rgba(59,130,246,.1)}
+.pref-label{font-size:9px;font-weight:700;color:var(--text3);letter-spacing:2px;text-transform:uppercase;padding:8px 8px 5px}
+.pill-row{display:flex;gap:4px;padding:2px 8px 8px}
+.pill{flex:1;padding:6px 4px;border:1px solid var(--border2);border-radius:7px;background:transparent;color:var(--text3);font-size:11px;font-family:var(--inter);cursor:pointer;text-align:center;transition:all .2s}
+.pill:hover{color:var(--text2);border-color:var(--border2)}
+.pill.active-lang{background:rgba(59,130,246,.12);color:var(--blue);border-color:rgba(59,130,246,.3)}
+.pill.active-unit{background:rgba(251,191,36,.1);color:var(--gold);border-color:rgba(251,191,36,.3)}
+
+.sidebar-foot{padding:14px 16px;border-top:1px solid rgba(59,130,246,.1);font-size:10px;color:var(--text3);font-family:var(--mono);line-height:1.9}
+
+/* ═══ MAIN ═══ */
+main{margin-left:var(--sidebar);flex:1;position:relative;z-index:1;min-height:100vh}
+
+/* ═══ PAGES ═══ */
+.page{display:none}
+.page.active{display:block;animation:pg .4s var(--ease)}
+@keyframes pg{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+/* ════════ HOME ════════ */
+.hero-wrap{padding:44px 40px 0}
+.hero-box{
+  position:relative;overflow:hidden;
+  background:linear-gradient(135deg,rgba(20,35,65,.95),rgba(10,18,35,.98));
+  border:1px solid rgba(59,130,246,.18);border-radius:24px;
+  padding:60px 44px;text-align:center;
+}
+.hero-box::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 70% 50% at 50% 0%,rgba(59,130,246,.18),transparent 65%);animation:hglow 5s ease infinite alternate}
+@keyframes hglow{from{opacity:.6}to{opacity:1}}
+.hero-box::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(59,130,246,.4),rgba(34,211,238,.4),transparent)}
+.hero-globe{font-size:64px;display:block;margin-bottom:22px;position:relative;z-index:1;
+  animation:hfloat 5s ease-in-out infinite;filter:drop-shadow(0 0 30px rgba(59,130,246,.4))}
+@keyframes hfloat{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-14px) scale(1.04)}}
+.hero-title{
+  font-family:var(--syne);font-size:clamp(24px,4vw,44px);font-weight:800;
+  line-height:1.15;margin-bottom:16px;position:relative;z-index:1;
+  background:linear-gradient(135deg,#fff 20%,var(--sky) 60%,var(--cyan));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.hero-sub{font-size:15px;color:var(--text2);max-width:620px;margin:0 auto 28px;line-height:1.8;position:relative;z-index:1}
+.hero-sub em{color:var(--sky);font-style:normal;font-weight:500}
+.hero-cta{position:relative;z-index:1}
+.cta-btn{
+  display:inline-flex;align-items:center;gap:9px;
+  padding:13px 34px;background:linear-gradient(135deg,var(--blue),var(--blue2));
+  color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:600;
+  font-family:var(--inter);cursor:pointer;transition:all .3s;
+  box-shadow:0 0 0 0 rgba(59,130,246,.5);
+  animation:cta-pulse 3s ease infinite;
+}
+@keyframes cta-pulse{0%,100%{box-shadow:0 6px 24px rgba(59,130,246,.4)}50%{box-shadow:0 6px 40px rgba(59,130,246,.7)}}
+.cta-btn:hover{transform:translateY(-3px) scale(1.02);box-shadow:0 12px 40px rgba(59,130,246,.5)!important;animation:none}
+
+.home-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;padding:22px 40px}
+.hcard{
+  background:rgba(12,17,32,.8);border:1px solid var(--border2);border-radius:14px;
+  padding:26px 18px;text-align:center;cursor:default;
+  opacity:0;animation:cardrise .6s var(--ease) forwards;
+  transition:all .3s;position:relative;overflow:hidden;
+}
+.hcard:nth-child(1){animation-delay:.06s}.hcard:nth-child(2){animation-delay:.13s}
+.hcard:nth-child(3){animation-delay:.20s}.hcard:nth-child(4){animation-delay:.27s}
+@keyframes cardrise{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:translateY(0)}}
+.hcard::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 50% 0%,rgba(59,130,246,.08),transparent 60%);opacity:0;transition:opacity .3s}
+.hcard:hover{transform:translateY(-6px);border-color:rgba(59,130,246,.35);box-shadow:0 16px 48px rgba(59,130,246,.15)}
+.hcard:hover::before{opacity:1}
+.hcard-ico{font-size:32px;display:block;margin-bottom:12px;filter:drop-shadow(0 2px 8px rgba(59,130,246,.3))}
+.hcard-title{font-size:11px;font-weight:700;color:var(--blue);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:7px;font-family:var(--syne)}
+.hcard-desc{font-size:12px;color:var(--text2);line-height:1.65}
+
+.stats-band{display:grid;grid-template-columns:repeat(4,1fr);margin:0 40px 40px;background:rgba(12,17,32,.8);border:1px solid var(--border2);border-radius:14px;overflow:hidden}
+.stat-cell{padding:22px 14px;text-align:center;position:relative}
+.stat-cell::after{content:'';position:absolute;right:0;top:20%;bottom:20%;width:1px;background:var(--border2)}
+.stat-cell:last-child::after{display:none}
+.stat-v{font-family:var(--syne);font-size:24px;font-weight:800;color:var(--blue);display:block;margin-bottom:3px}
+.stat-l{font-size:11px;color:var(--text3)}
+
+/* ════════ PRED PAGE ════════ */
+.ptop{padding:30px 40px 22px}
+.ptop h2{font-family:var(--syne);font-size:22px;font-weight:800;color:#fff;margin-bottom:4px}
+.ptop p{font-size:13px;color:var(--text2)}
+
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:18px;padding:0 40px}
+@media(max-width:960px){.two-col{grid-template-columns:1fr}}
+
+.fcard{
+  background:rgba(10,16,30,.85);backdrop-filter:blur(10px);
+  border:1px solid var(--border2);border-radius:18px;padding:24px;
+  opacity:0;animation:cardrise .5s var(--ease) forwards;
+  transition:border-color .3s;
+}
+.fcard:nth-child(2){animation-delay:.1s}
+.fcard:hover{border-color:rgba(59,130,246,.25)}
+.fcard-head{display:flex;align-items:center;gap:10px;margin-bottom:20px;padding-bottom:14px;border-bottom:1px solid rgba(59,130,246,.1)}
+.fcard-stripe{width:3px;height:22px;background:linear-gradient(180deg,var(--blue),var(--cyan));border-radius:3px;flex-shrink:0}
+.fcard-title{font-family:var(--syne);font-size:14px;font-weight:700;color:#fff}
+
+/* fields */
+.field{margin-bottom:14px}
+.flabel{font-size:11px;font-weight:600;color:var(--text2);letter-spacing:.4px;display:block;margin-bottom:6px}
+.flabel sub{color:var(--text3);font-size:9px}
+.flabel .unit-hint{font-family:var(--mono);color:var(--text3);font-size:10px;font-weight:400;margin-left:4px}
+
+/* num wrap */
+.nw{display:flex;background:rgba(6,8,16,.9);border:1px solid var(--border2);border-radius:9px;overflow:hidden;transition:border-color .2s,box-shadow .2s}
+.nw:focus-within{border-color:var(--blue);box-shadow:0 0 0 3px rgba(59,130,246,.12)}
+.nw input{flex:1;background:transparent;border:none;outline:none;color:var(--text);font-size:14px;font-family:var(--mono);padding:10px 14px;min-width:0}
+.nw input::-webkit-inner-spin-button,.nw input::-webkit-outer-spin-button{-webkit-appearance:none}
+.nw-btn{width:36px;background:rgba(59,130,246,.07);border:none;color:var(--text2);font-size:18px;cursor:pointer;transition:all .15s;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.nw-btn:hover{background:var(--blue);color:#fff}
+.nw-btn:active{transform:scale(.9)}
+
+/* select */
+.sw{position:relative}
+.sw select{width:100%;background:rgba(6,8,16,.9);border:1px solid var(--border2);border-radius:9px;padding:10px 36px 10px 14px;color:var(--text);font-size:14px;font-family:var(--inter);outline:none;cursor:pointer;appearance:none;transition:border-color .2s}
+.sw select:focus{border-color:var(--blue)}
+.sw::after{content:'▾';position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--text3);pointer-events:none}
+
+/* toggle */
+.tog-row{display:flex;align-items:center;justify-content:space-between;padding:9px 0;cursor:pointer}
+.tog-label{font-size:13px;color:var(--text2)}
+.tog{width:38px;height:21px;border-radius:11px;background:var(--border2);position:relative;transition:background .25s;flex-shrink:0}
+.tog::after{content:'';position:absolute;top:3px;left:3px;width:15px;height:15px;background:#fff;border-radius:50%;transition:left .25s;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+.tog.on{background:var(--blue)}
+.tog.on::after{left:20px}
+
+.tip{font-size:11px;color:var(--sky);background:rgba(56,189,248,.07);border:1px solid rgba(56,189,248,.18);border-radius:7px;padding:8px 12px;margin-top:7px;font-family:var(--mono)}
+
+/* section divider in form */
+.form-div{border-top:1px solid rgba(59,130,246,.1);margin:16px 0 14px;padding-top:14px}
+.form-div-title{font-size:11px;font-weight:700;color:var(--sky);letter-spacing:1px;text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;gap:6px}
+
+/* predict button */
+.pred-wrap{padding:18px 40px}
+.pred-btn{
+  width:100%;padding:15px;
+  background:linear-gradient(135deg,var(--blue) 0%,var(--blue2) 100%);
+  color:#fff;border:none;border-radius:14px;
+  font-family:var(--syne);font-size:15px;font-weight:700;
+  cursor:pointer;transition:all .3s;
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  position:relative;overflow:hidden;letter-spacing:.3px;
+}
+.pred-btn::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.15),transparent);transform:translateX(-100%)}
+.pred-btn:hover{transform:translateY(-2px);box-shadow:0 12px 40px rgba(59,130,246,.5);animation:none}
+.pred-btn:hover::after{animation:sheen .5s ease forwards}
+@keyframes sheen{to{transform:translateX(100%)}}
+.pred-btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
+.loader{width:18px;height:18px;border:2px solid rgba(255,255,255,.25);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ════════ RESULTS ════════ */
+.res-zone{padding:0 40px 50px}
+.sh{display:flex;align-items:center;gap:10px;margin:24px 0 13px}
+.sh-bar{width:3px;height:20px;background:linear-gradient(180deg,var(--blue),var(--cyan));border-radius:3px}
+.sh-text{font-family:var(--syne);font-size:15px;font-weight:700;color:#fff}
+.sh-sub{font-size:11px;color:var(--text3);margin-left:4px;font-family:var(--mono)}
+
+/* nappe banner */
+.nappe-banner{background:rgba(34,211,238,.06);border:1px solid rgba(34,211,238,.2);border-left:3px solid var(--cyan);border-radius:10px;padding:13px 16px;margin-bottom:18px;animation:cardrise .4s var(--ease)}
+.nappe-tag{font-size:12px;font-weight:700;color:var(--cyan);font-family:var(--mono);margin-bottom:3px}
+.nappe-vals{font-size:11px;color:var(--text2);font-family:var(--mono)}
+
+/* 6 factor cards */
+.f6{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
+@media(max-width:1100px){.f6{grid-template-columns:repeat(3,1fr)}}
+.fc{background:rgba(10,16,30,.8);border:1px solid var(--border2);border-radius:11px;padding:14px 10px;text-align:center;opacity:0;animation:cardrise .5s var(--ease) forwards;transition:all .25s;cursor:default}
+.fc:hover{border-color:rgba(59,130,246,.4);transform:translateY(-3px);box-shadow:0 8px 24px rgba(59,130,246,.12)}
+.fc-n{font-size:10px;font-weight:700;color:var(--text3);letter-spacing:1px;font-family:var(--mono);margin-bottom:6px}
+.fc-v{font-size:18px;font-weight:700;color:var(--blue);font-family:var(--mono)}
+
+/* 3 result cards */
+.r3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.rc{
+  background:rgba(10,16,30,.85);border:1px solid var(--border2);border-radius:18px;
+  padding:26px 18px;text-align:center;position:relative;overflow:hidden;
+  opacity:0;animation:cardrise .5s var(--ease) forwards;
+  transition:all .3s;
+}
+.rc:hover{transform:translateY(-5px);border-color:rgba(59,130,246,.3);box-shadow:0 20px 60px rgba(59,130,246,.12)}
+.rc::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--blue),var(--sky),var(--cyan))}
+.rc::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 60% 40% at 50% 0%,rgba(59,130,246,.06),transparent 70%)}
+.rc-lbl{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--text3);margin-bottom:14px;font-family:var(--syne);position:relative;z-index:1}
+.rc-val{font-size:36px;font-weight:800;font-family:var(--syne);color:var(--blue);line-height:1;margin-bottom:4px;position:relative;z-index:1}
+.rc-unit{font-size:12px;color:var(--text3);position:relative;z-index:1}
+.rc-conv{font-size:11px;color:var(--gold);font-family:var(--mono);margin-top:4px;position:relative;z-index:1}
+
+/* badge */
+.status-badge{display:inline-flex;align-items:center;gap:7px;padding:8px 20px;border-radius:30px;font-size:12px;font-weight:700;margin-top:12px;animation:badge-pop .5s cubic-bezier(.34,1.56,.64,1);position:relative;z-index:1;font-family:var(--syne)}
+@keyframes badge-pop{from{transform:scale(0);opacity:0}to{transform:scale(1);opacity:1}}
+.b-green{background:rgba(16,185,129,.12);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.b-blue{background:rgba(59,130,246,.12);color:var(--blue);border:1px solid rgba(59,130,246,.3)}
+.b-amber{background:rgba(245,158,11,.12);color:var(--amber);border:1px solid rgba(245,158,11,.3)}
+.b-red{background:rgba(239,68,68,.12);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+.bdot{width:8px;height:8px;border-radius:50%;animation:bdp 1.5s ease infinite}
+.b-green .bdot{background:var(--green)}.b-blue .bdot{background:var(--blue)}
+.b-amber .bdot{background:var(--amber)}.b-red .bdot{background:var(--red);animation-duration:.8s}
+@keyframes bdp{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.6)}}
+
+/* charts */
+.charts-duo{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.cpanel{background:rgba(10,16,30,.85);border:1px solid var(--border2);border-radius:18px;padding:22px}
+.cpanel-title{font-size:11px;font-family:var(--mono);color:var(--text2);margin-bottom:16px;letter-spacing:.5px}
+.gauge-h{position:relative;height:210px}
+
+/* download btn */
+.dl-btn{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:11px 24px;background:rgba(16,185,129,.1);
+  border:1px solid rgba(16,185,129,.35);border-radius:10px;
+  color:var(--green);font-size:13px;font-weight:600;font-family:var(--syne);
+  cursor:pointer;transition:all .25s;margin-top:2px;
+}
+.dl-btn:hover{background:rgba(16,185,129,.18);transform:translateY(-2px);box-shadow:0 8px 24px rgba(16,185,129,.2)}
+.dl-btn:active{transform:scale(.97)}
+
+/* recap table */
+.recap-shell{background:rgba(10,16,30,.85);border:1px solid var(--border2);border-radius:14px;overflow:hidden;margin-bottom:6px}
+.rtable{width:100%;border-collapse:collapse;font-size:12px}
+.rtable th{text-align:left;font-size:9px;letter-spacing:2px;color:var(--text3);padding:10px 16px;border-bottom:1px solid var(--border2);font-weight:700;text-transform:uppercase;font-family:var(--syne)}
+.rtable td{padding:8px 16px;border-bottom:1px solid rgba(30,48,80,.5);color:var(--text2)}
+.rtable td:last-child{color:var(--text);font-family:var(--mono);text-align:right}
+.rtable tr:hover td{background:rgba(59,130,246,.03)}
+.rtable tr:last-child td{border:none}
+
+/* ════════ ABOUT ════════ */
+.about-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:0 40px 40px}
+.acard{background:rgba(10,16,30,.85);border:1px solid var(--border2);border-radius:18px;padding:26px;opacity:0;animation:cardrise .5s var(--ease) forwards}
+.acard:nth-child(2){animation-delay:.08s}.acard:nth-child(3){animation-delay:.14s}.acard:nth-child(4){animation-delay:.2s}
+.acard h3{font-family:var(--syne);font-size:15px;font-weight:700;color:#fff;display:flex;align-items:center;gap:8px;margin-bottom:18px;padding-bottom:13px;border-bottom:1px solid var(--border2)}
+.arow{display:flex;gap:10px;margin-bottom:10px;font-size:13px;line-height:1.5}
+.akey{color:var(--text3);font-weight:500;min-width:110px;flex-shrink:0}
+.aval{color:var(--text2)}
+.pipe-step{display:flex;align-items:flex-start;gap:12px;padding:14px 0;border-bottom:1px solid var(--border2)}
+.pipe-step:last-child{border:none}
+.step-n{width:28px;height:28px;border-radius:50%;background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.3);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--blue);flex-shrink:0;font-family:var(--mono)}
+.step-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px;font-family:var(--syne)}
+.step-desc{font-size:12px;color:var(--text2);line-height:1.5}
+.step-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.stag{font-size:10px;font-family:var(--mono);padding:2px 8px;background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.2);border-radius:4px;color:var(--sky)}
+.mrow{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border2);font-size:12px}
+.mrow:last-child{border:none}
+.mname{color:var(--text2);font-family:var(--mono);width:55px;flex-shrink:0}
+.mbar{flex:1;height:4px;background:rgba(59,130,246,.1);border-radius:2px;overflow:hidden}
+.mfill{height:100%;background:linear-gradient(90deg,var(--blue),var(--sky));border-radius:2px;width:0;transition:width 1s var(--ease)}
+.mval{font-family:var(--mono);font-weight:700;color:var(--blue);width:48px;text-align:right;flex-shrink:0}
+.ref-li{font-size:12px;color:var(--text2);padding:8px 0;border-bottom:1px solid var(--border2);display:flex;gap:8px;line-height:1.55}
+.ref-li:last-child{border:none}
+.ref-li::before{content:'›';color:var(--blue);font-size:14px;line-height:1.3}
+
+/* ═══ UTILS ═══ */
+.divider{height:1px;background:linear-gradient(90deg,transparent,rgba(59,130,246,.15),transparent);margin:24px 40px}
+</style>
+</head>
+<body>
+
+<!-- BACKGROUND SCENE -->
+<div id="scene">
+  <div class="orb orb1"></div>
+  <div class="orb orb2"></div>
+  <div class="orb orb3"></div>
+  <canvas id="star-canvas"></canvas>
+</div>
+<div class="grid-overlay"></div>
+
+<!-- ══════ SIDEBAR ══════ -->
+<aside>
+  <div class="logo-zone">
+    <a class="logo" onclick="showPage('home')">
+      <div class="logo-gem">🏗</div>
+      <div>
+        <div class="logo-name">GeoPredict</div>
+        <div class="logo-tag">v2.0 — EC7 RF PIPELINE</div>
+      </div>
+    </a>
+  </div>
+
+  <nav>
+    <div class="nav-sec" id="nav-sec-nav">Navigation</div>
+    <button class="nav-item active" id="nav-home" onclick="showPage('home')">
+      <span class="nav-ico">🏠</span> <span id="nl-home">Accueil</span> <span class="nav-pip"></span>
+    </button>
+    <button class="nav-item" id="nav-pred" onclick="showPage('pred')">
+      <span class="nav-ico">🔬</span> <span id="nl-pred">Prédiction</span> <span class="nav-pip"></span>
+    </button>
+    <button class="nav-item" id="nav-about" onclick="showPage('about')">
+      <span class="nav-ico">ℹ️</span> <span id="nl-about">À Propos</span> <span class="nav-pip"></span>
+    </button>
+  </nav>
+
+  <div class="sidebar-prefs">
+    <div class="pref-label" id="pref-lang-lbl">Langue</div>
+    <div class="pill-row">
+      <button class="pill active-lang" id="pill-fr" onclick="setLang('fr')">🇫🇷 FR</button>
+      <button class="pill" id="pill-en" onclick="setLang('en')">🇬🇧 EN</button>
+      <button class="pill" id="pill-ar" onclick="setLang('ar')">🇩🇿 AR</button>
+    </div>
+    <div class="pref-label" id="pref-unit-lbl">Unité</div>
+    <div class="pill-row">
+      <button class="pill active-unit" id="pill-kpa" onclick="setUnit('kpa')">kPa</button>
+      <button class="pill" id="pill-bar" onclick="setUnit('bar')">bar</button>
+    </div>
+  </div>
+
+  <div class="sidebar-foot">
+    GeoPredict v2.0<br>
+    Master 2 Géotechnique<br>
+    Univ. Badji Mokhtar Annaba<br>
+    Enc. Pr. B. Sbartai
+  </div>
+</aside>
+
+<!-- ══════ MAIN ══════ -->
+<main>
+
+  <!-- ▸ HOME -->
+  <div class="page active" id="page-home">
+    <div class="hero-wrap">
+      <div class="hero-box">
+        <span class="hero-globe">🌍</span>
+        <h1 class="hero-title" id="h-title">Intelligence Artificielle<br>au service de la Géotechnique</h1>
+        <p class="hero-sub" id="h-sub">GeoPredict v2 intègre l'effet de la <em>nappe phréatique</em> selon l'Eurocode 7 et utilise <em>3 modèles Random Forest en pipeline</em> pour une prédiction complète et précise.</p>
+        <div class="hero-cta">
+          <button class="cta-btn" onclick="showPage('pred')" id="h-cta">🔬 Lancer la Prédiction →</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="home-grid">
+      <div class="hcard"><span class="hcard-ico">🤖</span><div class="hcard-title" id="hc1-t">3 Modèles RF</div><div class="hcard-desc" id="hc1-d">Pipeline Stage 1 → 2a → 2b pour une prédiction en cascade précise</div></div>
+      <div class="hcard"><span class="hcard-ico">💧</span><div class="hcard-title" id="hc2-t">Nappe Phréatique</div><div class="hcard-desc" id="hc2-d">3 cas selon Eurocode 7 — méthode Pr. Sbartai avec Rw1, Rw2, γeff</div></div>
+      <div class="hcard"><span class="hcard-ico">⚡</span><div class="hcard-title" id="hc3-t">Instantané</div><div class="hcard-desc" id="hc3-d">Résultats complets en moins d'une seconde sans calcul manuel</div></div>
+      <div class="hcard"><span class="hcard-ico">📊</span><div class="hcard-title" id="hc4-t">9 Résultats</div><div class="hcard-desc" id="hc4-d">Nq, Nc, Nγ, sq, sc, sγ, qu, q_adm, FS avec visualisations interactives</div></div>
+    </div>
+
+    <div class="stats-band">
+      <div class="stat-cell"><span class="stat-v" data-count="5000">0</span><div class="stat-l" id="st1">Cas d'entraînement</div></div>
+      <div class="stat-cell"><span class="stat-v">R² &gt; 0.92</span><div class="stat-l" id="st2">Précision globale</div></div>
+      <div class="stat-cell"><span class="stat-v" data-count="3">0</span><div class="stat-l" id="st3">Modèles RF Pipeline</div></div>
+      <div class="stat-cell"><span class="stat-v">EC7</span><div class="stat-l" id="st4">Norme Eurocode 7</div></div>
+    </div>
+  </div>
+
+  <!-- ▸ PREDICTION -->
+  <div class="page" id="page-pred">
+    <div class="ptop">
+      <h2 id="pred-title">🔬 Prédiction</h2>
+      <p id="pred-sub">Entrez les paramètres du sol et de la fondation</p>
+    </div>
+    <div class="two-col">
+
+      <!-- SOL -->
+      <div class="fcard">
+        <div class="fcard-head">
+          <div class="fcard-stripe"></div>
+          <span style="font-size:16px">🪨</span>
+          <div class="fcard-title" id="sol-title">Paramètres du Sol</div>
+        </div>
+        <div class="field"><label class="flabel" id="lbl-c">Cohésion c' <span class="unit-hint">(kPa)</span></label><div class="nw"><button class="nw-btn" onclick="adj('c',-0.5)">−</button><input type="number" id="c" value="20" min="0" max="100" step="0.5"/><button class="nw-btn" onclick="adj('c',0.5)">+</button></div></div>
+        <div class="field"><label class="flabel" id="lbl-phi">Angle de frottement φ' <span class="unit-hint">(°)</span></label><div class="nw"><button class="nw-btn" onclick="adj('phi',-0.5)">−</button><input type="number" id="phi" value="30" min="1" max="50" step="0.5"/><button class="nw-btn" onclick="adj('phi',0.5)">+</button></div></div>
+        <div class="field"><label class="flabel" id="lbl-gam">Poids volumique γ <span class="unit-hint">(kN/m³)</span></label><div class="nw"><button class="nw-btn" onclick="adj('gam',-0.1)">−</button><input type="number" id="gam" value="18" min="14" max="22" step="0.1"/><button class="nw-btn" onclick="adj('gam',0.1)">+</button></div></div>
+        <div class="field"><label class="flabel" id="lbl-gsat">Poids volumique saturé γ<sub>sat</sub> <span class="unit-hint">(kN/m³)</span></label><div class="nw"><button class="nw-btn" onclick="adj('gsat',-0.1)">−</button><input type="number" id="gsat" value="20" min="16" max="24" step="0.1"/><button class="nw-btn" onclick="adj('gsat',0.1)">+</button></div></div>
+        <div class="form-div">
+          <div class="form-div-title">💧 <span id="nappe-sec-title">Nappe Phréatique</span></div>
+          <div class="tog-row" onclick="toggleNappe()"><span class="tog-label" id="lbl-nappe-tog">Présence de nappe</span><div class="tog" id="tog-nappe"></div></div>
+          <div id="nappe-fields" style="display:none;margin-top:12px">
+            <div class="field"><label class="flabel" id="lbl-zw">Profondeur nappe Z<sub>w</sub> <span class="unit-hint">(m)</span></label><div class="nw"><button class="nw-btn" onclick="adj('zw',-0.1)">−</button><input type="number" id="zw" value="1.5" min="0" max="15" step="0.1"/><button class="nw-btn" onclick="adj('zw',0.1)">+</button></div></div>
+            <div class="tip" id="zw-tip">ℹ️ Zw = profondeur depuis la surface du sol</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- FONDATION -->
+      <div class="fcard">
+        <div class="fcard-head">
+          <div class="fcard-stripe"></div>
+          <span style="font-size:16px">🏛</span>
+          <div class="fcard-title" id="fond-title">Paramètres de la Fondation</div>
+        </div>
+        <div class="field"><label class="flabel" id="lbl-type">Type de fondation</label><div class="sw"><select id="fond-type" onchange="onFond()"><option value="Rectangulaire" id="opt-rect">Rectangulaire</option><option value="Carrée" id="opt-sq">Carrée</option><option value="Circulaire" id="opt-circ">Circulaire</option></select></div></div>
+        <div id="dim-rect">
+          <div class="field"><label class="flabel" id="lbl-B">Largeur B <span class="unit-hint">(m)</span></label><div class="nw"><button class="nw-btn" onclick="adj('B',-0.1)">−</button><input type="number" id="B" value="2" min="0.5" max="10" step="0.1"/><button class="nw-btn" onclick="adj('B',0.1)">+</button></div></div>
+          <div id="field-L" class="field"><label class="flabel" id="lbl-L">Longueur L <span class="unit-hint">(m)</span></label><div class="nw"><button class="nw-btn" onclick="adj('L',-0.1)">−</button><input type="number" id="L" value="3" min="0.5" max="20" step="0.1"/><button class="nw-btn" onclick="adj('L',0.1)">+</button></div></div>
+          <div class="tip" id="sq-hint" style="display:none">L = B</div>
+        </div>
+        <div id="dim-circ" style="display:none">
+          <div class="field"><label class="flabel" id="lbl-R">Rayon R <span class="unit-hint">(m)</span></label><div class="nw"><button class="nw-btn" onclick="adj('R',-0.05)">−</button><input type="number" id="R" value="0.75" min="0.25" max="5" step="0.05" oninput="updCirc()"/><button class="nw-btn" onclick="adj('R',0.05);updCirc()">+</button></div></div>
+          <div class="tip" id="circ-tip">Diamètre B = 2R = 1.50 m</div>
+        </div>
+        <div class="field" style="margin-top:14px"><label class="flabel" id="lbl-Df">Profondeur d'encastrement D<sub>f</sub> <span class="unit-hint">(m)</span></label><div class="nw"><button class="nw-btn" onclick="adj('Df',-0.1)">−</button><input type="number" id="Df" value="1.5" min="0.5" max="5" step="0.1"/><button class="nw-btn" onclick="adj('Df',0.1)">+</button></div></div>
+        <div class="field"><label class="flabel" id="lbl-qapp">Charge appliquée q<sub>app</sub> <span class="unit-hint">(kPa)</span></label><div class="nw"><button class="nw-btn" onclick="adj('qapp',-10)">−</button><input type="number" id="qapp" value="200" min="10" max="2000" step="10"/><button class="nw-btn" onclick="adj('qapp',10)">+</button></div></div>
+      </div>
+    </div>
+
+    <div class="pred-wrap">
+      <button class="pred-btn" id="pred-btn" onclick="runPred()">
+        <div class="loader" id="pred-loader"></div>
+        <span id="pred-btn-txt">🔮 Prédire — Lancer le pipeline RF</span>
+      </button>
+    </div>
+
+    <div id="results" style="display:none" class="res-zone"></div>
+  </div>
+
+  <!-- ▸ ABOUT -->
+  <div class="page" id="page-about">
+    <div class="ptop"><h2 id="about-title">ℹ️ À Propos</h2><p id="about-sub">Détails du projet, de la méthodologie et des performances</p></div>
+    <div class="about-grid">
+      <div class="acard">
+        <h3>🎓 <span id="ab1">Projet Académique</span></h3>
+        <div class="arow"><span class="akey" id="akey-titre">Titre</span><span class="aval" id="aval-titre">Application du Machine Learning pour la prédiction de la capacité portante des fondations superficielles</span></div>
+        <div class="arow"><span class="akey" id="akey-meth">Méthode</span><span class="aval">Random Forest — Eurocode 7 + Nappe phréatique</span></div>
+        <div class="arow"><span class="akey" id="akey-db">Base</span><span class="aval">5000 cas synthétiques EC7 (Sol général)</span></div>
+        <div class="arow"><span class="akey" id="akey-val">Validation</span><span class="aval">Cross-Validation 5-Fold</span></div>
+        <div style="border-top:1px solid var(--border2);margin-top:16px;padding-top:16px">
+          <h3 style="border:none;padding:0;margin-bottom:12px">🏛 <span id="ab-inst">Institution</span></h3>
+          <div class="arow"><span class="akey" id="ak-univ">Université</span><span class="aval">Badji Mokhtar Annaba</span></div>
+          <div class="arow"><span class="akey" id="ak-dep">Département</span><span class="aval">Génie Civil</span></div>
+          <div class="arow"><span class="akey" id="ak-spec">Spécialité</span><span class="aval">Géotechnique — Master 2</span></div>
+          <div class="arow"><span class="akey" id="ak-enc">Encadreur</span><span class="aval">Pr. B. Sbartai</span></div>
+        </div>
+      </div>
+      <div class="acard">
+        <h3>⚙️ <span id="ab2">Pipeline RF — 3 Étapes</span></h3>
+        <div class="pipe-step"><div class="step-n">1</div><div><div class="step-title" id="ps1t">RF Stage 1 — Facteurs EC7</div><div class="step-desc" id="ps1d">Multi-output RF prédit les 6 facteurs de portance et de forme</div><div class="step-tags"><span class="stag">Nq</span><span class="stag">Nc</span><span class="stag">Nγ</span><span class="stag">sq</span><span class="stag">sc</span><span class="stag">sγ</span></div></div></div>
+        <div class="pipe-step"><div class="step-n">2</div><div><div class="step-title" id="ps2t">RF Stage 2a — Capacités</div><div class="step-desc" id="ps2d">Utilise les facteurs Stage 1 + paramètres sol/fondation</div><div class="step-tags"><span class="stag">qu (kPa)</span><span class="stag">q_adm (kPa)</span></div></div></div>
+        <div class="pipe-step"><div class="step-n">3</div><div><div class="step-title" id="ps3t">RF Stage 2b — FS</div><div class="step-desc" id="ps3d">Apprend directement FS = qu / q_app</div><div class="step-tags"><span class="stag">FS</span><span class="stag">qu_pred + q_app</span></div></div></div>
+      </div>
+      <div class="acard" id="perf-card">
+        <h3>📈 <span id="ab3">Performances</span></h3>
+        <div style="font-size:10px;color:var(--text3);font-family:var(--mono);margin-bottom:8px;letter-spacing:1px">STAGE 1 — R² TEST</div>
+        <div class="mrow"><span class="mname">Nq</span><div class="mbar"><div class="mfill" data-w="96.38"></div></div><span class="mval">0.9638</span></div>
+        <div class="mrow"><span class="mname">Nc</span><div class="mbar"><div class="mfill" data-w="96.14"></div></div><span class="mval">0.9614</span></div>
+        <div class="mrow"><span class="mname">Nγ</span><div class="mbar"><div class="mfill" data-w="94.87"></div></div><span class="mval">0.9487</span></div>
+        <div class="mrow"><span class="mname">sq</span><div class="mbar"><div class="mfill" data-w="93.95"></div></div><span class="mval">0.9395</span></div>
+        <div class="mrow"><span class="mname">sc</span><div class="mbar"><div class="mfill" data-w="93.95"></div></div><span class="mval">0.9395</span></div>
+        <div class="mrow"><span class="mname">sγ</span><div class="mbar"><div class="mfill" data-w="96.55"></div></div><span class="mval">0.9655</span></div>
+        <div style="font-size:10px;color:var(--text3);font-family:var(--mono);margin:14px 0 8px;letter-spacing:1px;border-top:1px solid var(--border2);padding-top:14px">STAGE 2 — R² TEST</div>
+        <div class="mrow"><span class="mname">qu</span><div class="mbar"><div class="mfill" data-w="92.23"></div></div><span class="mval">0.9223</span></div>
+        <div class="mrow"><span class="mname">q_adm</span><div class="mbar"><div class="mfill" data-w="95.75"></div></div><span class="mval">0.9575</span></div>
+        <div class="mrow"><span class="mname">FS</span><div class="mbar"><div class="mfill" data-w="92.38"></div></div><span class="mval">0.9238</span></div>
+      </div>
+      <div class="acard">
+        <h3>💧 <span id="ab4">Nappe Phréatique EC7</span></h3>
+        <div class="ref-li"><div><strong style="color:var(--text)">Cas 0</strong> — Zw ≥ Df+B → aucune influence. Rw1=Rw2=1</div></div>
+        <div class="ref-li"><div><strong style="color:var(--text)">Cas 1</strong> — Zw ≤ Df → nappe au-dessus. Rw1=0.5(1+Zw/Df), Rw2=0.5</div></div>
+        <div class="ref-li"><div><strong style="color:var(--text)">Cas 2</strong> — Df &lt; Zw &lt; Df+B → nappe dans zone B. Rw1=1, Rw2=0.5(1+zw2/B)</div></div>
+        <div style="border-top:1px solid var(--border2);margin-top:14px;padding-top:14px">
+          <h3 style="border:none;padding:0;margin-bottom:12px">📚 <span id="ab5">Références</span></h3>
+          <div class="ref-li">Eurocode 7 — EN 1997-1 : Calcul géotechnique</div>
+          <div class="ref-li">Vesic, A.S. (1975) — Bearing capacity of shallow foundations</div>
+          <div class="ref-li">Breiman, L. (2001) — Random Forests, Machine Learning</div>
+          <div class="ref-li">Sbartai, B. — Cours Fondations Superficielles, Univ. Annaba</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+/* ══════════════════════════════════════
+   STAR FIELD CANVAS
+══════════════════════════════════════ */
+(()=>{
+  const cv=document.getElementById('star-canvas');
+  const ctx=cv.getContext('2d');
+  let W,H,stars=[];
+  const resize=()=>{W=cv.width=window.innerWidth;H=cv.height=window.innerHeight};
+  resize();window.addEventListener('resize',resize);
+  for(let i=0;i<180;i++)stars.push({x:Math.random()*9999,y:Math.random()*9999,r:Math.random()*1.5+.2,o:Math.random()*.7+.1,sp:Math.random()*.003+.001,ph:Math.random()*Math.PI*2,vx:(Math.random()-.5)*.12,vy:(Math.random()-.5)*.06});
+  let t=0;
+  const draw=()=>{
+    ctx.clearRect(0,0,W,H);t+=.016;
+    stars.forEach(s=>{
+      s.x+=s.vx;s.y+=s.vy;
+      if(s.x<0)s.x=W;if(s.x>W)s.x=0;
+      if(s.y<0)s.y=H;if(s.y>H)s.y=0;
+      const op=s.o*(0.5+0.5*Math.sin(t*s.sp*60+s.ph));
+      ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);
+      ctx.fillStyle=`rgba(148,163,184,${op})`;ctx.fill();
+    });
+    // shooting stars occasionally
+    if(Math.random()<.003){
+      const sx=Math.random()*W,sy=Math.random()*H*.4;
+      ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(sx+80,sy+30);
+      ctx.strokeStyle='rgba(56,189,248,.6)';ctx.lineWidth=1;ctx.stroke();
+    }
+    requestAnimationFrame(draw);
+  };
+  draw();
+})();
+
+/* ══════════════════════════════════════
+   I18N
+══════════════════════════════════════ */
+const T={
+  fr:{
+    navHome:'Accueil',navPred:'Prédiction',navAbout:'À Propos',
+    hTitle:'Intelligence Artificielle<br>au service de la Géotechnique',
+    hSub:'GeoPredict v2 intègre l\'effet de la <em>nappe phréatique</em> selon l\'Eurocode 7 et utilise <em>3 modèles Random Forest en pipeline</em> pour une prédiction complète et précise.',
+    hCta:'🔬 Lancer la Prédiction →',
+    hc1t:'3 Modèles RF',hc1d:'Pipeline Stage 1 → 2a → 2b pour une prédiction en cascade précise',
+    hc2t:'Nappe Phréatique',hc2d:'3 cas selon Eurocode 7 — méthode Pr. Sbartai avec Rw1, Rw2, γeff',
+    hc3t:'Instantané',hc3d:'Résultats complets en moins d\'une seconde sans calcul manuel',
+    hc4t:'9 Résultats',hc4d:'Nq, Nc, Nγ, sq, sc, sγ, qu, q_adm, FS avec visualisations',
+    st1:'Cas d\'entraînement',st2:'Précision globale',st3:'Modèles RF Pipeline',st4:'Norme Eurocode 7',
+    predTitle:'🔬 Prédiction',predSub:'Entrez les paramètres du sol et de la fondation',
+    solTitle:'Paramètres du Sol',fondTitle:'Paramètres de la Fondation',
+    lblC:'Cohésion c\'',lblPhi:'Angle de frottement φ\'',lblGam:'Poids volumique γ',lblGsat:'Poids volumique saturé γsat',
+    nappeSec:'Nappe Phréatique',lblNappeTog:'Présence de nappe',lblZw:'Profondeur nappe Zw',zwTip:'ℹ️ Zw = profondeur depuis la surface du sol',
+    lblType:'Type de fondation',optRect:'Rectangulaire',optSq:'Carrée',optCirc:'Circulaire',
+    lblB:'Largeur B',lblL:'Longueur L',lblR:'Rayon R',lblDf:'Profondeur d\'encastrement Df',lblQapp:'Charge appliquée q_app',
+    predBtn:'🔮 Prédire — Lancer le pipeline RF',predLoading:'Calcul en cours…',
+    shFactors:'Facteurs de Portance & de Forme',shCapacity:'Résultats de Capacité Portante',
+    shCharts:'Visualisations',shRecap:'Récapitulatif complet',
+    lblQu:'Capacité Portante Ultime',lblQadm:'Capacité Admissible',lblFS:'Facteur de Sécurité',
+    stTresSec:'Très Sécuritaire',stCourant:'Courant / Optimal',stDefav:'Défavorable',stSous:'Sous-Dimensionné !',
+    nappeLabel:['Aucune influence (Zw ≥ Df+B)','Nappe au-dessus de la fondation (Zw ≤ Df)','Nappe dans la zone d\'influence B'],
+    dlBtn:'⬇ Télécharger les résultats (PDF)',parametre:'Paramètre',valeur:'Valeur',
+    aboutTitle:'ℹ️ À Propos',aboutSub:'Détails du projet, de la méthodologie et des performances',
+    ab1:'Projet Académique',ab2:'Pipeline RF — 3 Étapes',ab3:'Performances',ab4:'Nappe Phréatique EC7',ab5:'Références',
+    ps1t:'RF Stage 1 — Facteurs EC7',ps1d:'Multi-output RF prédit les 6 facteurs de portance et de forme',
+    ps2t:'RF Stage 2a — Capacités',ps2d:'Utilise les facteurs Stage 1 + paramètres sol/fondation',
+    ps3t:'RF Stage 2b — FS',ps3d:'Apprend directement FS = qu / q_app',
+    langLbl:'Langue',unitLbl:'Unité',
+  },
+  en:{
+    navHome:'Home',navPred:'Prediction',navAbout:'About',
+    hTitle:'Artificial Intelligence<br>for Geotechnical Engineering',
+    hSub:'GeoPredict v2 integrates <em>groundwater effects</em> per Eurocode 7 and uses <em>3 Random Forest models in pipeline</em> for complete and accurate bearing capacity prediction.',
+    hCta:'🔬 Launch Prediction →',
+    hc1t:'3 RF Models',hc1d:'Pipeline Stage 1 → 2a → 2b for accurate cascaded prediction',
+    hc2t:'Groundwater',hc2d:'3 cases per Eurocode 7 — Pr. Sbartai method with Rw1, Rw2, γeff',
+    hc3t:'Instant Results',hc3d:'Complete results in under one second, no manual calculation',
+    hc4t:'9 Outputs',hc4d:'Nq, Nc, Nγ, sq, sc, sγ, qu, q_adm, FS with interactive charts',
+    st1:'Training Cases',st2:'Global Accuracy',st3:'RF Pipeline Models',st4:'Eurocode 7 Standard',
+    predTitle:'🔬 Prediction',predSub:'Enter soil and foundation parameters',
+    solTitle:'Soil Parameters',fondTitle:'Foundation Parameters',
+    lblC:'Cohesion c\'',lblPhi:'Friction angle φ\'',lblGam:'Unit weight γ',lblGsat:'Saturated unit weight γsat',
+    nappeSec:'Groundwater',lblNappeTog:'Groundwater present',lblZw:'Water table depth Zw',zwTip:'ℹ️ Zw = depth from ground surface',
+    lblType:'Foundation type',optRect:'Rectangular',optSq:'Square',optCirc:'Circular',
+    lblB:'Width B',lblL:'Length L',lblR:'Radius R',lblDf:'Embedment depth Df',lblQapp:'Applied load q_app',
+    predBtn:'🔮 Predict — Run RF Pipeline',predLoading:'Computing…',
+    shFactors:'Bearing & Shape Factors',shCapacity:'Bearing Capacity Results',
+    shCharts:'Visualizations',shRecap:'Full Summary',
+    lblQu:'Ultimate Bearing Capacity',lblQadm:'Allowable Capacity',lblFS:'Safety Factor',
+    stTresSec:'Very Safe',stCourant:'Optimal',stDefav:'Unfavorable',stSous:'Under-Designed!',
+    nappeLabel:['No influence (Zw ≥ Df+B)','Water above foundation (Zw ≤ Df)','Water in influence zone B'],
+    dlBtn:'⬇ Download Results (PDF)',parametre:'Parameter',valeur:'Value',
+    aboutTitle:'ℹ️ About',aboutSub:'Project details, methodology and performance metrics',
+    ab1:'Academic Project',ab2:'RF Pipeline — 3 Stages',ab3:'Model Performance',ab4:'Groundwater EC7',ab5:'References',
+    ps1t:'RF Stage 1 — EC7 Factors',ps1d:'Multi-output RF predicts 6 bearing and shape factors',
+    ps2t:'RF Stage 2a — Capacities',ps2d:'Uses Stage 1 factors + soil/foundation parameters',
+    ps3t:'RF Stage 2b — FS',ps3d:'Directly learns FS = qu / q_app ratio',
+    langLbl:'Language',unitLbl:'Unit',
+  },
+  ar:{
+    navHome:'الرئيسية',navPred:'التنبؤ',navAbout:'حول',
+    hTitle:'الذكاء الاصطناعي<br>في خدمة الجيوتقنية',
+    hSub:'يستخدم GeoPredict v2 <em>تأثير المياه الجوفية</em> وفق EC7 و<em>3 نماذج Random Forest</em> للتنبؤ الكامل والدقيق بالقدرة الحاملة.',
+    hCta:'🔬 إطلاق التنبؤ ←',
+    hc1t:'3 نماذج RF',hc1d:'مسار Stage 1 → 2a → 2b للتنبؤ المتسلسل',
+    hc2t:'المياه الجوفية',hc2d:'3 حالات وفق EC7 — طريقة Pr. Sbartai',
+    hc3t:'فوري',hc3d:'نتائج كاملة في أقل من ثانية',
+    hc4t:'9 نتائج',hc4d:'Nq، Nc، Nγ، sq، sc، sγ، qu، q_adm، FS',
+    st1:'حالات التدريب',st2:'الدقة الكلية',st3:'نماذج RF',st4:'معيار EC7',
+    predTitle:'🔬 التنبؤ',predSub:'أدخل معاملات التربة والأساس',
+    solTitle:'معاملات التربة',fondTitle:'معاملات الأساس',
+    lblC:'التماسك c\'',lblPhi:'زاوية الاحتكاك φ\'',lblGam:'الوزن الحجمي γ',lblGsat:'الوزن الحجمي المشبع γsat',
+    nappeSec:'المياه الجوفية',lblNappeTog:'وجود مياه جوفية',lblZw:'عمق المياه Zw',zwTip:'ℹ️ Zw = العمق من سطح التربة',
+    lblType:'نوع الأساس',optRect:'مستطيلة',optSq:'مربعة',optCirc:'دائرية',
+    lblB:'العرض B',lblL:'الطول L',lblR:'نصف القطر R',lblDf:'عمق التأسيس Df',lblQapp:'الحمل q_app',
+    predBtn:'🔮 تنبّأ — تشغيل المسار',predLoading:'جارٍ الحساب…',
+    shFactors:'عوامل القدرة الحاملة والشكل',shCapacity:'نتائج القدرة الحاملة',
+    shCharts:'المخططات',shRecap:'ملخص كامل',
+    lblQu:'القدرة الحاملة القصوى',lblQadm:'القدرة المسموح بها',lblFS:'معامل الأمان',
+    stTresSec:'آمن جداً',stCourant:'مثالي',stDefav:'غير مواتٍ',stSous:'غير كافٍ!',
+    nappeLabel:['لا تأثير (Zw ≥ Df+B)','مياه فوق الأساس (Zw ≤ Df)','مياه في منطقة التأثير B'],
+    dlBtn:'⬇ تحميل النتائج (PDF)',parametre:'المعامل',valeur:'القيمة',
+    aboutTitle:'ℹ️ حول التطبيق',aboutSub:'تفاصيل المشروع والمنهجية والأداء',
+    ab1:'مشروع أكاديمي',ab2:'مسار RF — 3 مراحل',ab3:'أداء النماذج',ab4:'المياه الجوفية EC7',ab5:'المراجع',
+    ps1t:'RF Stage 1 — عوامل EC7',ps1d:'يتنبأ بـ 6 عوامل قدرة حاملة وشكل',
+    ps2t:'RF Stage 2a — القدرات',ps2d:'يستخدم عوامل Stage 1 + معاملات التربة/الأساس',
+    ps3t:'RF Stage 2b — FS',ps3d:'يتعلم مباشرة FS = qu / q_app',
+    langLbl:'اللغة',unitLbl:'الوحدة',
+  }
+};
+
+/* ══════════════════════════════════════
+   STATE
+══════════════════════════════════════ */
+let lang='fr', unit='kpa', nappeOn=false;
+let gaugeChart=null, barChart=null;
+
+/* ══════════════════════════════════════
+   APPLY LANGUAGE
+══════════════════════════════════════ */
+function applyLang(){
+  const t=T[lang];
+  // nav
+  document.getElementById('nl-home').textContent=t.navHome;
+  document.getElementById('nl-pred').textContent=t.navPred;
+  document.getElementById('nl-about').textContent=t.navAbout;
+  // home
+  document.getElementById('h-title').innerHTML=t.hTitle;
+  document.getElementById('h-sub').innerHTML=t.hSub;
+  document.getElementById('h-cta').textContent=t.hCta;
+  document.getElementById('hc1-t').textContent=t.hc1t;document.getElementById('hc1-d').textContent=t.hc1d;
+  document.getElementById('hc2-t').textContent=t.hc2t;document.getElementById('hc2-d').textContent=t.hc2d;
+  document.getElementById('hc3-t').textContent=t.hc3t;document.getElementById('hc3-d').textContent=t.hc3d;
+  document.getElementById('hc4-t').textContent=t.hc4t;document.getElementById('hc4-d').textContent=t.hc4d;
+  document.getElementById('st1').textContent=t.st1;document.getElementById('st2').textContent=t.st2;
+  document.getElementById('st3').textContent=t.st3;document.getElementById('st4').textContent=t.st4;
+  // pred page
+  document.getElementById('pred-title').textContent=t.predTitle;
+  document.getElementById('pred-sub').textContent=t.predSub;
+  document.getElementById('sol-title').textContent=t.solTitle;
+  document.getElementById('fond-title').textContent=t.fondTitle;
+  document.getElementById('lbl-c').childNodes[0].textContent=t.lblC+' ';
+  document.getElementById('lbl-phi').childNodes[0].textContent=t.lblPhi+' ';
+  document.getElementById('lbl-gam').childNodes[0].textContent=t.lblGam+' ';
+  document.getElementById('lbl-gsat').childNodes[0].textContent=t.lblGsat+' ';
+  document.getElementById('nappe-sec-title').textContent=t.nappeSec;
+  document.getElementById('lbl-nappe-tog').textContent=t.lblNappeTog;
+  document.getElementById('lbl-zw').childNodes[0].textContent=t.lblZw+' ';
+  document.getElementById('zw-tip').textContent=t.zwTip;
+  document.getElementById('lbl-type').textContent=t.lblType;
+  document.getElementById('opt-rect').textContent=t.optRect;
+  document.getElementById('opt-sq').textContent=t.optSq;
+  document.getElementById('opt-circ').textContent=t.optCirc;
+  document.getElementById('lbl-B').childNodes[0].textContent=t.lblB+' ';
+  document.getElementById('lbl-L').childNodes[0].textContent=t.lblL+' ';
+  document.getElementById('lbl-R').childNodes[0].textContent=t.lblR+' ';
+  document.getElementById('lbl-Df').childNodes[0].textContent=t.lblDf+' ';
+  document.getElementById('lbl-qapp').childNodes[0].textContent=t.lblQapp+' ';
+  document.getElementById('pred-btn-txt').textContent=t.predBtn;
+  // about
+  document.getElementById('about-title').textContent=t.aboutTitle;
+  document.getElementById('about-sub').textContent=t.aboutSub;
+  ['ab1','ab2','ab3','ab4','ab5','ps1t','ps1d','ps2t','ps2d','ps3t','ps3d'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.textContent=t[id]||'';
+  });
+  document.getElementById('pref-lang-lbl').textContent=t.langLbl;
+  document.getElementById('pref-unit-lbl').textContent=t.unitLbl;
+  // RTL
+  document.documentElement.dir=lang==='ar'?'rtl':'ltr';
+}
+
+function setLang(l){
+  lang=l;
+  document.querySelectorAll('.pill').forEach(p=>p.classList.remove('active-lang'));
+  document.getElementById('pill-'+l).classList.add('active-lang');
+  applyLang();
+}
+function setUnit(u){
+  unit=u;
+  document.querySelectorAll('.pill').forEach(p=>p.classList.remove('active-unit'));
+  document.getElementById('pill-'+u).classList.add('active-unit');
+}
+
+/* ══════════════════════════════════════
+   NAV
+══════════════════════════════════════ */
+function showPage(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  document.getElementById('nav-'+id).classList.add('active');
+  if(id==='home'){setTimeout(animCounters,200)}
+  if(id==='about'){setTimeout(animBars,300)}
+}
+
+/* ══════════════════════════════════════
+   COUNTER ANIMATION
+══════════════════════════════════════ */
+function animCounters(){
+  document.querySelectorAll('[data-count]').forEach(el=>{
+    const target=parseInt(el.dataset.count);let cur=0;const step=target/60;
+    const iv=setInterval(()=>{cur=Math.min(cur+step,target);el.textContent=Math.floor(cur).toLocaleString();if(cur>=target){el.textContent=target.toLocaleString();clearInterval(iv)}},16);
+  });
+}
+setTimeout(animCounters,500);
+
+/* ══════════════════════════════════════
+   BAR ANIMATIONS (about page)
+══════════════════════════════════════ */
+function animBars(){
+  document.querySelectorAll('.mfill').forEach(el=>{
+    el.style.width='0';
+    setTimeout(()=>{el.style.width=el.dataset.w+'%'},50);
+  });
+}
+
+/* ══════════════════════════════════════
+   NUM INPUTS
+══════════════════════════════════════ */
+function adj(id,delta){
+  const el=document.getElementById(id);
+  const v=parseFloat(el.value)+delta;
+  const mn=parseFloat(el.min||'-999'),mx=parseFloat(el.max||'9999');
+  const c=Math.max(mn,Math.min(mx,v));
+  const dec=String(delta).includes('.')?String(delta).split('.')[1].length:0;
+  el.value=c.toFixed(dec);
+  if(id==='R')updCirc();
+}
+function updCirc(){
+  const r=parseFloat(document.getElementById('R').value)||0;
+  document.getElementById('circ-tip').textContent=`Diamètre B = 2R = ${(r*2).toFixed(2)} m`;
+}
+function toggleNappe(){
+  nappeOn=!nappeOn;
+  document.getElementById('tog-nappe').className='tog'+(nappeOn?' on':'');
+  document.getElementById('nappe-fields').style.display=nappeOn?'block':'none';
+}
+function onFond(){
+  const t=document.getElementById('fond-type').value;
+  document.getElementById('dim-rect').style.display=t==='Circulaire'?'none':'block';
+  document.getElementById('dim-circ').style.display=t==='Circulaire'?'block':'none';
+  document.getElementById('field-L').style.display=t==='Rectangulaire'?'block':'none';
+  document.getElementById('sq-hint').style.display=t==='Carrée'?'block':'none';
+}
+
+/* ══════════════════════════════════════
+   NAPPE PHYSICS
+══════════════════════════════════════ */
+function calcNappe(Zw,Df,B,gamma,gamma_sat){
+  let cas,Rw1,Rw2,gamma_eff;
+  if(Zw<=Df){
+    cas=1;Rw1=Df>0?+(0.5*(1+Zw/Df)).toFixed(4):1;Rw2=0.5;gamma_eff=+gamma_sat.toFixed(3);
+  } else if(Zw<Df+B){
+    cas=2;const zw2=+(Zw-Df).toFixed(2);Rw1=1;Rw2=+(0.5*(1+zw2/B)).toFixed(4);
+    gamma_eff=+((gamma*zw2+gamma_sat*(B-zw2))/B).toFixed(3);
+  } else {
+    cas=0;Rw1=1;Rw2=1;gamma_eff=gamma;
+  }
+  return{cas,Rw1,Rw2,gamma_eff};
+}
+
+/* ══════════════════════════════════════
+   EC7 FACTORS
+══════════════════════════════════════ */
+function rad(d){return d*Math.PI/180}
+function calcFactors(phi,type,BL){
+  const Nq=Math.exp(Math.PI*Math.tan(rad(phi)))*Math.pow(Math.tan(rad(45+phi/2)),2);
+  const Nc=phi>0?(Nq-1)/Math.tan(rad(phi)):5.14;
+  const Ng=2*(Nq+1)*Math.tan(rad(phi));
+  let sq,sc,sg;
+  if(type==='Circulaire'){sq=1+Math.tan(rad(phi));sc=1.3;sg=0.6;}
+  else if(type==='Carrée'||type==='Square'){sq=1+0.1*Math.pow(Math.tan(rad(45+phi/2)),2);sc=1.2;sg=phi>10?sq:1;}
+  else{sq=1+0.1*BL*Math.pow(Math.tan(rad(45+phi/2)),2);sc=1+0.2*BL;sg=phi>10?sq:1;}
+  return{Nq,Nc,Ng,sq,sc,sg};
+}
+
+/* ══════════════════════════════════════
+   STATUS
+══════════════════════════════════════ */
+function getStatus(FS){
+  const t=T[lang];
+  if(FS>=3.2)return{label:t.stTresSec,cls:'b-green',emoji:'🟢'};
+  if(FS>=2.5)return{label:t.stCourant,cls:'b-blue',emoji:'🔵'};
+  if(FS>=2.0)return{label:t.stDefav,cls:'b-amber',emoji:'🟡'};
+  return{label:t.stSous,cls:'b-red',emoji:'🔴'};
+}
+
+/* ══════════════════════════════════════
+   ANIMATED NUMBER
+══════════════════════════════════════ */
+function animNum(el,target,dec,delay=0){
+  setTimeout(()=>{
+    const dur=900,start=performance.now();
+    function step(now){const p=Math.min((now-start)/dur,1),e=1-Math.pow(1-p,3);el.textContent=(target*e).toFixed(dec);if(p<1)requestAnimationFrame(step);else el.textContent=target.toFixed(dec);}
+    requestAnimationFrame(step);
+  },delay);
+}
+
+/* ══════════════════════════════════════
+   DOWNLOAD PDF
+══════════════════════════════════════ */
+function downloadResults(data){
+  const t=T[lang];
+  const {c,phi,gamma,gamma_sat,fond_type,B,L,R_v,Df,qapp,Zw,nappe,f,qu,q_adm,FS,status,unit:u,factor}=data;
+  const dimStr=fond_type==='Circulaire'?`R = ${R_v.toFixed(2)} m`:`B = ${B.toFixed(2)} m, L = ${L.toFixed(2)} m`;
+  const nappeStr=nappeOn?`Zw = ${Zw.toFixed(2)} m (Cas ${nappe.cas})`:'Sans nappe / No groundwater';
+  const rows=[
+    ["c' (kPa)",c],["φ' (°)",phi],["γ (kN/m³)",gamma],["γsat (kN/m³)",gamma_sat],
+    [t.lblType||"Type",fond_type],["Dimensions",dimStr],["Df (m)",Df],
+    [t.nappeSec||"Nappe",nappeStr],["Rw1",nappe.Rw1.toFixed(4)],["Rw2",nappe.Rw2.toFixed(4)],
+    ["γeff (kN/m³)",nappe.gamma_eff.toFixed(3)],["q_app (kPa)",qapp],
+    ["Nq",f.Nq.toFixed(4)],["Nc",f.Nc.toFixed(4)],["Nγ",f.Ng.toFixed(4)],
+    ["sq",f.sq.toFixed(4)],["sc",f.sc.toFixed(4)],["sγ",f.sg.toFixed(4)],
+    [`qu (${u})`,(qu*factor).toFixed(3)],[`q_adm (${u})`,(q_adm*factor).toFixed(3)],
+    ["FS",FS.toFixed(3)],["Statut",`${status.emoji} ${status.label}`]
+  ];
+  const now=new Date();
+  const dateStr=now.toLocaleDateString()+" "+now.toLocaleTimeString();
+  let html=`<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>GeoPredict Results</title>
+  <style>body{font-family:Arial,sans-serif;padding:30px;color:#1a202c;max-width:700px;margin:0 auto}
+  h1{color:#1d4ed8;font-size:22px;margin-bottom:4px}h2{font-size:14px;color:#475569;margin:0 0 24px;font-weight:400}
+  .badge{display:inline-block;padding:6px 16px;border-radius:20px;font-size:13px;font-weight:700;margin:12px 0}
+  .green{background:#dcfce7;color:#15803d}.blue{background:#dbeafe;color:#1d4ed8}
+  .amber{background:#fef3c7;color:#92400e}.red{background:#fee2e2;color:#991b1b}
+  table{width:100%;border-collapse:collapse;margin-top:16px;font-size:13px}
+  th{background:#1e3a8a;color:#fff;padding:8px 12px;text-align:left;font-weight:600}
+  td{padding:7px 12px;border-bottom:1px solid #e2e8f0}
+  tr:nth-child(even) td{background:#f8fafc}
+  tr:last-child td{border:none}
+  .vals{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:20px 0}
+  .vbox{background:#f1f5f9;border-radius:8px;padding:12px;text-align:center}
+  .vnum{font-size:24px;font-weight:700;color:#1d4ed8}.vlbl{font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:1px}
+  footer{margin-top:30px;font-size:10px;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:12px}
+  </style></head><body>
+  <h1>🏗 GeoPredict v2 — Résultats / Results</h1>
+  <h2>Capacité Portante EC7 — Pipeline Random Forest | ${dateStr}</h2>
+  <div class="vals">
+  <div class="vbox"><div class="vlbl">qu</div><div class="vnum">${(qu*factor).toFixed(2)}</div><div class="vlbl">${u}</div></div>
+  <div class="vbox"><div class="vlbl">q_adm</div><div class="vnum">${(q_adm*factor).toFixed(2)}</div><div class="vlbl">${u}</div></div>
+  <div class="vbox"><div class="vlbl">FS</div><div class="vnum">${FS.toFixed(3)}</div><div class="vlbl">—</div></div>
+  </div>
+  <div class="badge ${status.cls.replace('b-','')}">${status.emoji} ${status.label}</div>
+  <table><thead><tr><th>${t.parametre}</th><th>${t.valeur}</th></tr></thead><tbody>
+  ${rows.map(([k,v])=>`<tr><td><b>${k}</b></td><td>${v}</td></tr>`).join('')}
+  </tbody></table>
+  <footer>GeoPredict v2.0 — Master 2 Géotechnique — Université Badji Mokhtar Annaba — Enc. Pr. B. Sbartai<br>
+  Ce rapport est généré automatiquement. Vérifiez les résultats avec un ingénieur géotechnicien.</footer>
+  </body></html>`;
+  const blob=new Blob([html],{type:'text/html'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=`GeoPredict_Results_${now.toISOString().slice(0,10)}.html`;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+}
+
+/* ══════════════════════════════════════
+   RUN PREDICTION
+══════════════════════════════════════ */
+function runPred(){
+  const t=T[lang];
+  const btn=document.getElementById('pred-btn');
+  const loader=document.getElementById('pred-loader');
+  const btxt=document.getElementById('pred-btn-txt');
+  btn.disabled=true;loader.style.display='block';btxt.textContent=t.predLoading;
+
+  setTimeout(()=>{
+    /* Read inputs */
+    const c=parseFloat(document.getElementById('c').value);
+    const phi=parseFloat(document.getElementById('phi').value);
+    const gamma=parseFloat(document.getElementById('gam').value);
+    const gamma_sat=parseFloat(document.getElementById('gsat').value);
+    const fond_type=document.getElementById('fond-type').value;
+    const Df=parseFloat(document.getElementById('Df').value);
+    const qapp=parseFloat(document.getElementById('qapp').value);
+    const Zw=nappeOn?parseFloat(document.getElementById('zw').value):999;
+    let B,L,R_v,BL;
+    if(fond_type==='Circulaire'||fond_type==='Circular'){
+      R_v=parseFloat(document.getElementById('R').value);B=2*R_v;L=B;BL=1;
+    } else if(fond_type==='Carrée'||fond_type==='Square'){
+      B=parseFloat(document.getElementById('B').value);L=B;R_v=0;BL=1;
+    } else {
+      B=parseFloat(document.getElementById('B').value);L=parseFloat(document.getElementById('L').value);R_v=0;BL=B/L;
+    }
+
+    const nappe=calcNappe(Zw,Df,B,gamma,gamma_sat);
+    const f=calcFactors(phi,fond_type,BL);
+
+    /* qu calculation */
+    const q_prime=nappe.gamma_eff*Df;
+    const qu=c*f.Nc*f.sc + q_prime*f.Nq*f.sq*nappe.Rw1 + 0.5*nappe.gamma_eff*B*f.Ng*f.sg*nappe.Rw2;
+    const q_adm=qu/3;
+    const FS=qu/Math.max(qapp,.1);
+
+    const factor=unit==='bar'?0.01:1;
+    const u=unit==='bar'?'bar':'kPa';
+    const uAlt=unit==='bar'?'kPa':'bar';
+    const fAlt=unit==='bar'?1:0.01;
+    const status=getStatus(FS);
+    const fsColor=FS>=3.2?'#10b981':FS>=2.5?'#3b82f6':FS>=2.0?'#f59e0b':'#ef4444';
+    const dimStr=fond_type==='Circulaire'||fond_type==='Circular'?`R = ${R_v.toFixed(2)} m`:`B = ${B.toFixed(2)} m, L = ${L.toFixed(2)} m`;
+    const napLabels=t.nappeLabel;
+
+    const data={c,phi,gamma,gamma_sat,fond_type,B,L,R_v,Df,qapp,Zw,nappe,f,qu,q_adm,FS,status,unit:u,factor};
+
+    const res=document.getElementById('results');
+    res.style.display='block';
+    res.innerHTML=`
+${nappeOn?`<div class="nappe-banner">
+  <div class="nappe-tag">💧 Cas ${nappe.cas} — ${napLabels[nappe.cas]}</div>
+  <div class="nappe-vals">Rw1 = ${nappe.Rw1.toFixed(4)} &nbsp;|&nbsp; Rw2 = ${nappe.Rw2.toFixed(4)} &nbsp;|&nbsp; γeff = ${nappe.gamma_eff.toFixed(3)} kN/m³</div>
+</div>`:''}
+
+<div class="sh"><div class="sh-bar"></div><span class="sh-text">${t.shFactors}</span></div>
+<div class="f6">
+  ${[['Nq',f.Nq],['Nc',f.Nc],['Nγ',f.Ng],['sq',f.sq],['sc',f.sc],['sγ',f.sg]].map(([n,v],i)=>`<div class="fc" style="animation-delay:${i*.06}s"><div class="fc-n">${n}</div><div class="fc-v" id="rv-${n.replace('γ','g')}">—</div></div>`).join('')}
+</div>
+
+<div class="sh" style="margin-top:22px"><div class="sh-bar"></div><span class="sh-text">${t.shCapacity}</span></div>
+<div class="r3">
+  <div class="rc"><div class="rc-lbl">${t.lblQu}</div><div class="rc-val" id="rv-qu">—</div><div class="rc-unit">${u}</div><div class="rc-conv" id="rv-qu-c">—</div></div>
+  <div class="rc" style="animation-delay:.08s"><div class="rc-lbl">${t.lblQadm}</div><div class="rc-val" id="rv-qa">—</div><div class="rc-unit">${u}</div><div class="rc-conv" id="rv-qa-c">—</div></div>
+  <div class="rc" style="animation-delay:.16s"><div class="rc-lbl">${t.lblFS}</div><div class="rc-val" id="rv-fs" style="color:${fsColor}">—</div><div class="rc-unit">FS</div><div class="status-badge ${status.cls}" style="animation-delay:.7s"><div class="bdot"></div>${status.emoji} ${status.label}</div></div>
+</div>
+
+<div class="sh" style="margin-top:22px"><div class="sh-bar"></div><span class="sh-text">${t.shCharts}</span></div>
+<div class="charts-duo">
+  <div class="cpanel"><div class="cpanel-title">Facteur de Sécurité (FS)</div><div class="gauge-h"><canvas id="gauge-cv"></canvas></div></div>
+  <div class="cpanel"><div class="cpanel-title">Comparaison des capacités (${u})</div><div style="height:210px;position:relative"><canvas id="bar-cv"></canvas></div></div>
+</div>
+
+<div class="sh" style="margin-top:22px"><div class="sh-bar"></div><span class="sh-text">${t.shRecap}</span>
+  <button class="dl-btn" onclick='downloadResults(${JSON.stringify(data).replace(/'/g,"\\'")})'>${t.dlBtn}</button>
+</div>
+<div class="recap-shell">
+<table class="rtable">
+<thead><tr><th>${t.parametre}</th><th>${t.valeur}</th></tr></thead>
+<tbody>
+<tr><td>c' (kPa)</td><td>${c}</td></tr>
+<tr><td>φ' (°)</td><td>${phi}</td></tr>
+<tr><td>γ (kN/m³)</td><td>${gamma}</td></tr>
+<tr><td>γsat (kN/m³)</td><td>${gamma_sat}</td></tr>
+<tr><td>${t.lblType||'Type'}</td><td>${fond_type}</td></tr>
+<tr><td>Dimensions</td><td>${dimStr}</td></tr>
+<tr><td>Df (m)</td><td>${Df}</td></tr>
+<tr><td>${t.nappeSec||'Nappe'}</td><td>${nappeOn?`Zw = ${Zw.toFixed(2)} m (Cas ${nappe.cas})`:'—'}</td></tr>
+<tr><td>Rw1 / Rw2</td><td>${nappe.Rw1.toFixed(4)} / ${nappe.Rw2.toFixed(4)}</td></tr>
+<tr><td>γeff (kN/m³)</td><td>${nappe.gamma_eff.toFixed(3)}</td></tr>
+<tr><td>q_app (kPa)</td><td>${qapp}</td></tr>
+<tr><td>Nq / Nc / Nγ</td><td>${f.Nq.toFixed(4)} / ${f.Nc.toFixed(4)} / ${f.Ng.toFixed(4)}</td></tr>
+<tr><td>sq / sc / sγ</td><td>${f.sq.toFixed(4)} / ${f.sc.toFixed(4)} / ${f.sg.toFixed(4)}</td></tr>
+<tr><td>qu (${u})</td><td>${(qu*factor).toFixed(3)}</td></tr>
+<tr><td>q_adm (${u})</td><td>${(q_adm*factor).toFixed(3)}</td></tr>
+<tr><td>FS</td><td>${FS.toFixed(3)}</td></tr>
+<tr><td>Statut</td><td>${status.emoji} ${status.label}</td></tr>
+</tbody></table></div>`;
+
+    /* Animate factors */
+    const pairs=[[f.Nq,'rv-Nq',4],[f.Nc,'rv-Nc',4],[f.Ng,'rv-Ng',4],[f.sq,'rv-sq',4],[f.sc,'rv-sc',4],[f.sg,'rv-sg',4]];
+    pairs.forEach(([v,id,d],i)=>animNum(document.getElementById(id),v,d,i*60));
+    animNum(document.getElementById('rv-qu'),qu*factor,2,420);
+    animNum(document.getElementById('rv-qa'),q_adm*factor,2,480);
+    animNum(document.getElementById('rv-fs'),FS,3,540);
+    setTimeout(()=>{
+      document.getElementById('rv-qu-c').textContent=`= ${(qu*fAlt).toFixed(3)} ${uAlt}`;
+      document.getElementById('rv-qa-c').textContent=`= ${(q_adm*fAlt).toFixed(3)} ${uAlt}`;
+    },1000);
+
+    /* Charts */
+    setTimeout(()=>{
+      if(gaugeChart)gaugeChart.destroy();
+      const gc=document.getElementById('gauge-cv').getContext('2d');
+      gaugeChart=new Chart(gc,{
+        type:'doughnut',
+        data:{datasets:[{data:[Math.min(FS,8)/8,1-Math.min(FS,8)/8],backgroundColor:[fsColor,'rgba(30,48,80,.7)'],borderWidth:0,circumference:180,rotation:270,borderRadius:8}]},
+        plugins:[{id:'gt',afterDraw(ch){
+          const{ctx,chartArea:{left,right,bottom}}=ch;
+          const cx=(left+right)/2,cy=bottom-8;
+          ctx.save();
+          ctx.fillStyle=fsColor;ctx.font='bold 28px Syne,sans-serif';ctx.textAlign='center';ctx.fillText(FS.toFixed(3),cx,cy-8);
+          ctx.fillStyle='#475569';ctx.font='11px Inter,sans-serif';ctx.fillText(status.label,cx,cy+13);
+          ctx.restore();
+        }}],
+        options:{responsive:true,maintainAspectRatio:false,cutout:'72%',plugins:{legend:{display:false},tooltip:{enabled:false}}}
+      });
+
+      if(barChart)barChart.destroy();
+      const bc=document.getElementById('bar-cv').getContext('2d');
+      barChart=new Chart(bc,{
+        type:'bar',
+        data:{
+          labels:[`qu (${u})`,`q_adm (${u})`,`q_app (${u})`],
+          datasets:[{data:[qu*factor,q_adm*factor,qapp*(unit==='bar'?.01:1)],backgroundColor:['rgba(59,130,246,.7)','rgba(16,185,129,.7)','rgba(251,191,36,.7)'],borderColor:['#3b82f6','#10b981','#fbbf24'],borderWidth:1,borderRadius:9}]
+        },
+        options:{responsive:true,maintainAspectRatio:false,
+          plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.parsed.y.toFixed(2)} ${u}`}}},
+          scales:{x:{ticks:{color:'#64748b',font:{size:11,family:'DM Mono'}},grid:{color:'rgba(30,48,80,.6)'}},y:{ticks:{color:'#64748b',font:{size:10,family:'DM Mono'}},grid:{color:'rgba(30,48,80,.6)'}}},
+          animation:{duration:1000,easing:'easeOutQuart'}
+        }
+      });
+    },280);
+
+    btn.disabled=false;loader.style.display='none';btxt.textContent=t.predBtn;
+    res.scrollIntoView({behavior:'smooth',block:'start'});
+  },750);
+}
+
+/* Init */
+applyLang();
+</script>
+</body>
+</html>
